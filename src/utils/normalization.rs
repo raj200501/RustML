@@ -1,20 +1,79 @@
-use super::super::data::dataset::Dataset;
+use crate::data::dataset::{Dataset, DatasetError};
 
-pub fn normalize(dataset: &Dataset) -> Dataset {
-    let mut normalized_data = dataset.data.clone();
-    
-    for j in 0..dataset.data[0].len() {
-        let col: Vec<f64> = dataset.data.iter().map(|row| row[j]).collect();
-        let mean: f64 = col.iter().sum::<f64>() / col.len() as f64;
-        let std_dev: f64 = (col.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / col.len() as f64).sqrt();
-        
-        for i in 0..dataset.data.len() {
-            normalized_data[i][j] = (dataset.data[i][j] - mean) / std_dev;
+#[derive(Debug, Clone)]
+pub struct NormalizationStats {
+    pub mean: Vec<f64>,
+    pub std_dev: Vec<f64>,
+    pub min: Vec<f64>,
+    pub max: Vec<f64>,
+}
+
+impl NormalizationStats {
+    pub fn z_score(dataset: &Dataset) -> Self {
+        let cols = dataset.num_features();
+        let mut mean = vec![0.0; cols];
+        let mut std_dev = vec![0.0; cols];
+        let mut min = vec![f64::MAX; cols];
+        let mut max = vec![f64::MIN; cols];
+        for row in &dataset.data {
+            for (idx, value) in row.iter().enumerate() {
+                mean[idx] += value;
+                min[idx] = min[idx].min(*value);
+                max[idx] = max[idx].max(*value);
+            }
+        }
+        for value in &mut mean {
+            *value /= dataset.data.len() as f64;
+        }
+        for row in &dataset.data {
+            for (idx, value) in row.iter().enumerate() {
+                std_dev[idx] += (*value - mean[idx]).powi(2);
+            }
+        }
+        for value in &mut std_dev {
+            *value = (*value / dataset.data.len() as f64).sqrt().max(1e-12);
+        }
+        NormalizationStats {
+            mean,
+            std_dev,
+            min,
+            max,
         }
     }
-    
-    Dataset {
-        data: normalized_data,
-        target: dataset.target.clone(),
+}
+
+pub fn normalize_z_score(dataset: &Dataset) -> Result<(Dataset, NormalizationStats), DatasetError> {
+    let stats = NormalizationStats::z_score(dataset);
+    let mut data = dataset.data.clone();
+    for row in &mut data {
+        for (idx, value) in row.iter_mut().enumerate() {
+            *value = (*value - stats.mean[idx]) / stats.std_dev[idx];
+        }
     }
+    Ok((
+        Dataset::from_records(
+            dataset.feature_names.clone(),
+            dataset.target_name.clone(),
+            data,
+            dataset.target.clone(),
+        )?,
+        stats,
+    ))
+}
+
+pub fn normalize_min_max(dataset: &Dataset) -> Result<Dataset, DatasetError> {
+    let stats = NormalizationStats::z_score(dataset);
+    let mut data = dataset.data.clone();
+    for row in &mut data {
+        for (idx, value) in row.iter_mut().enumerate() {
+            let range = (stats.max[idx] - stats.min[idx]).max(1e-12);
+            *value = (*value - stats.min[idx]) / range;
+        }
+    }
+    Dataset::from_records(
+        dataset.feature_names.clone(),
+        dataset.target_name.clone(),
+        data,
+        dataset.target.clone(),
+    )
 }

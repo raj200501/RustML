@@ -1,102 +1,131 @@
 # RustML
 
-RustML is a high-performance Rust library for Machine Learning, designed to handle and process large datasets efficiently. This project demonstrates Rust's capabilities for performance, safety, and concurrency in the context of ML tasks.
+RustML is a Rust-first machine learning toolkit focused on reproducible data pipelines, model training, and integration workflows. It ships with a runnable demo pipeline, command-line tools for each stage, and a deterministic verification script suitable for CI.
 
 ## Features
 
-- Load and process datasets
-- Train and evaluate machine learning models (Linear Regression, Logistic Regression)
-- Normalize data and perform feature engineering
-- Easily extendable and customizable
+- Load and process CSV datasets.
+- Clean data, normalize features, and engineer polynomial features.
+- Train linear and logistic regression models with deterministic behavior.
+- Evaluate models with common regression metrics.
+- Simulate SDN/NFV deployment decisions.
 
-## Directory Structure
+## Project Layout
 
 ```plaintext
 .
+├── data/
+│   └── iris.csv
+├── scripts/
+│   ├── run.sh
+│   ├── smoke_test.sh
+│   └── verify.sh
 ├── src/
-│   ├── lib.rs
-│   ├── main.rs
+│   ├── bin/
 │   ├── data/
-│   │   ├── mod.rs
-│   │   ├── dataset.rs
+│   ├── deployment/
+│   ├── math/
 │   ├── ml/
-│   │   ├── mod.rs
-│   │   ├── linear_regression.rs
-│   │   ├── logistic_regression.rs
 │   ├── utils/
-│   │   ├── mod.rs
-│   │   ├── normalization.rs
-│   │   ├── evaluation.rs
-├── tests/
-│   ├── data_tests.rs
-│   ├── ml_tests.rs
-├── Cargo.toml
-├── README.md
+│   ├── config.rs
+│   ├── io.rs
+│   ├── lib.rs
+│   └── main.rs
+└── tests/
 ```
 
-## Getting Started
-### Prerequisites
-Rust 1.50.0 or higher
+## Prerequisites
 
-Cargo
+- Rust (stable toolchain)
+- Cargo (ships with Rust)
 
-### Installation
-Clone the repository:
+## Installation
 
-
-git clone https://github.com/your_username/rustml.git
-cd rustml
-Build the project:
-
-
+```bash
+git clone <your fork or clone url>
+cd RustML
 cargo build
-Run the main program:
-
-
-cargo run
+```
 
 ## Usage
-### Data Generation
-Generate synthetic data to simulate real-world network scenarios.
 
+### Run the demo pipeline
 
-cargo run --bin data/synthetic_data_generator
-Data Preprocessing
-Clean, normalize, and engineer features for the generated data.
+The default demo runs a full training pipeline against `data/iris.csv`.
 
-### Data Cleaning:
+```bash
+./scripts/run.sh
+```
 
-cargo run --bin preprocessing/data_cleaning
-Normalization:
+### Generate synthetic data
 
+```bash
+cargo run --bin synthetic_data_generator -- --output output/synthetic.csv --rows 256 --seed 42
+```
 
-cargo run --bin preprocessing/normalization
-### Feature Engineering:
+### Data cleaning
 
+```bash
+cargo run --bin data_cleaning -- --input output/synthetic.csv --output output/cleaned.csv
+```
 
-cargo run --bin preprocessing/feature_engineering
-### Model Training
-Train various ML models for traffic prediction, anomaly detection, and network optimization.
+### Normalization
 
+```bash
+cargo run --bin normalization -- --input output/cleaned.csv --output output/normalized.csv
+```
 
-cargo run --bin models/model_training
-### Model Evaluation
-Evaluate the trained models using different metrics and visualize the results.
+### Feature engineering
 
+```bash
+cargo run --bin feature_engineering -- --input output/normalized.csv --output output/features.csv --degree 2
+```
 
-cargo run --bin evaluation/model_evaluation
-cargo run --bin evaluation/results_visualization
-### Deployment
-Deploy the models for real-time decision-making in SDN and NFV environments.
+### Model training
 
-### SDN Controller Integration:
+```bash
+cargo run --bin model_training -- --input output/features.csv --output output/model.json
+```
 
+### Model evaluation
 
-cargo run --bin deployment/sdn_controller_integration
-### NFV Orchestrator Integration:
+```bash
+cargo run --bin model_evaluation -- --input output/features.csv --model output/model.json --output output/report.json
+```
 
+### Results visualization
 
-cargo run --bin deployment/nfv_orchestrator_integration
-### Real-Time Decision Making:
+```bash
+cargo run --bin results_visualization -- --input output/report.json
+```
 
-cargo run --bin deployment/real_time_decision_making
+### Deployment simulation
+
+```bash
+cargo run --bin sdn_controller_integration -- --model output/model.json --output output/sdn_decision.json
+cargo run --bin nfv_orchestrator_integration -- --model output/model.json --output output/nfv_decision.json
+cargo run --bin real_time_decision_making -- --model output/model.json --output output/realtime_decision.json --rows 8
+```
+
+## Verified Quickstart
+
+Commands executed successfully:
+
+```bash
+./scripts/run.sh
+```
+
+## Verified Verification
+
+The canonical verification entrypoint is:
+
+```bash
+./scripts/verify.sh
+```
+
+It runs the unit tests and a smoke test that exercises the end-to-end pipeline.
+
+## Troubleshooting
+
+- If `cargo run` fails to find `data/iris.csv`, ensure you are running from the repository root.
+- If outputs are missing, check that the `output/` directory is writable.
